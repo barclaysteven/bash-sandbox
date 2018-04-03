@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Script runs shunit2. That package must be installed in order to run tests.
+if ! which shunit2 > /dev/null ; then
+  echo "You must have the debian 'shunit2' installed to run these tests." >&2
+  exit 1
+fi
+
+DATE_CMD="date +%s.%N"
+
+setUp() {
+  export RUNNING_TESTS=true
+  START=$(${DATE_CMD})
+}
+
+oneTimeSetUp() {
+  source $(dirname $0)/[SETUP_SCRIPT]
+  setupOneTimeSetUp
+}
+
+oneTimeTearDown() {
+  setupOneTimeTearDown
+}
+
+tearDown() {
+  setupTearDown
+  END=$(${DATE_CMD})
+  DIFF=$( echo $END $START | awk '{print $1 - $2}' )
+  echo -e "Test run time: ${DIFF}\n"
+}
+
+set +u
+. shunit2
