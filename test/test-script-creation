@@ -1,0 +1,258 @@
+#!/bin/bash
+
+# Script runs shunit2. That package must be installed in order to run tests.
+if ! which shunit2 > /dev/null ; then
+  echo "You must have the debian 'shunit2' installed to run these tests." >&2
+  exit 1
+fi
+
+DATE_CMD="date +%s.%N"
+
+setUp() {
+  export RUNNING_TESTS=true
+  echo "scripts:" > "${TEST_YAML_FILE}"
+  START=$(${DATE_CMD})
+}
+
+oneTimeSetUp() {
+  source "$(dirname $0)/test-script-creation-setup"
+  setupOneTimeSetUp
+}
+
+oneTimeTearDown() {
+  setupOneTimeTearDown
+}
+
+tearDown() {
+  setupTearDown
+  END=$(${DATE_CMD})
+  DIFF=$( echo "$END" "$START" | awk '{print $1 - $2}' )
+  echo -e "Test run time: ${DIFF}\n"
+}
+
+patternMatching() {
+  local input=$1
+  local pattern=$2
+
+  if [[ "${input}" =~ ${pattern} ]] ; then
+    echo 0
+  else
+    echo 1
+  fi
+}
+
+grepSearchFile() {
+  local searchPattern=$1
+  local searchLocation=$2
+
+  if grep -q "${searchPattern}" "${searchLocation}" ; then
+    echo 0
+  else
+    echo 1
+  fi
+}
+
+grepSearchEcho() {
+  local echoSearch=$1
+  local searchPattern=$2
+  
+  results=$(echo "${echoSearch}" | grep "${searchPattern}")
+
+  if [ "${results}" ] ; then
+    echo 0
+  else
+    echo 1
+  fi
+}
+
+assertMetaData() {
+  local metaData=$1
+  local loc=$2
+  local desc=$3
+  local alias=$4
+
+  locResults=$(grepSearchEcho "${metaData}" "location:\ ${loc}")
+  descResults=$(grepSearchEcho "${metaData}" "description:\ ${desc}")
+  assertTrue "Missing location" "${locResults}"
+  assertTrue "Missing description" "${descResults}"
+  if [ "${alias}" ] ; then
+    aliasResults=$(grepSearchEcho "${metaData}" "alias:\ ${alias}")
+    assertTrue "Missing alias" "${aliasResults}"
+  fi
+}
+
+checkPermissions() {
+  local loc=$1
+
+  if [ -x "${loc}" ] ; then
+    echo 0
+  else
+    echo 1
+  fi
+}
+
+runScript() {
+  echo "Running cmd: ${SCRIPT_LOCATION} -n my-script -l \"resources\" -d \"Test script\""
+  ${SCRIPT_LOCATION} -n my-script -l "resources" -d "Test script"
+}
+
+test_shouldFailIfScriptNameNotGiven() {
+  echo "Running cmd: ${SCRIPT_LOCATION}"
+  ${SCRIPT_LOCATION}
+  egrep -q "A script name must be provided" "${TEST_LOG_FILE}"
+  grepResponse=$?
+  assertEquals "Script should fail and log if script name was not provided" 0 ${grepResponse}
+}
+
+test_shouldFailIfLocationIsNotGiven() {
+  echo "Running cmd: ${SCRIPT_LOCATION} -n test-script"
+  ${SCRIPT_LOCATION} -n test-script
+  egrep -q "Location must be provided" "${TEST_LOG_FILE}"
+  grepResponse=$?
+  assertEquals "Script should fail and log if a location is not provided" 0 ${grepResponse}
+}
+
+test_shouldFailIfDescriptionIsNotGiven() {
+  echo "Running cmd: ${SCRIPT_LOCATION} -n test-script -l \"test/resources/\""
+  ${SCRIPT_LOCATION} -n test-script -l "test/resources/"
+  egrep -q "Description must be provided" "${TEST_LOG_FILE}"
+  grepResponse=$?
+  assertEquals "Script should fail and log if a description is not provided" 0 ${grepResponse}
+}
+
+test_shouldDisplayUsageMessageWhenHelpArgumentIsGiven() {
+  echo "Running cmd: ${SCRIPT_LOCATION} -h"
+  response=$(${SCRIPT_LOCATION} -h)
+  result=$(patternMatching "${response}" "^Usage:.*")
+  assertTrue "Script should display the usage message" "${result}"
+}
+
+test_shouldFailWhenInvalidArgumentArePresent() {
+  echo "Running cmd: ${SCRIPT_LOCATION} --invalid"
+  response=$(${SCRIPT_LOCATION} --invalid)
+  egrep -q "Invalid argument found." "${TEST_LOG_FILE}"
+  grepResponse=$?
+  assertEquals "Script should fail when invalid parameters are passed in" 0 ${grepResponse}
+}
+
+test_shouldDisplayUsageMessageWithInvalidArguments() {
+  echo "Running cmd: ${SCRIPT_LOCATION} --invalid"
+  response=$(${SCRIPT_LOCATION} --invalid)
+  result=$(patternMatching "${response}" "^Usage:.*")
+  assertTrue "Script should display usage message" "${result}"
+}
+
+test_shouldCreateScriptDirectoryStructure() {
+  runScript
+  findScriptDirOutput=$(find resources/ -name "my-script" -type d)
+  findTestDirOutput=$(find resources/ -name "test" -type d)
+
+  scriptDirResults=$(patternMatching "${findScriptDirOutput}" ".*my-script.*")
+  testDirResults=$(patternMatching "${findTestDirOutput}" ".*test.*")
+  
+  assertTrue "Script should create directory in desired location" "${scriptDirResults}"
+  assertTrue "Script should create test directory in desired location" "${testDirResults}"
+}
+
+test_shouldCreateScriptInDesiredLocation() {
+  runScript
+  
+  findScriptOutput=$(find resources/ -name "my-script" -type f)
+
+  scriptResults=$(patternMatching "${findScriptOutput}" ".*my-script.*")
+
+  assertTrue "Script should create script in desired location" "${scriptResults}"
+}
+
+test_shouldCreateTestScriptsInDesiredLocation() {
+  runScript
+  desiredLocation="resources/my-script/test"
+  
+  findTestScriptOutput=$(find ${desiredLocation} -name "test-my-script" -type f)
+  findTestSetupScriptOutput=$(find ${desiredLocation} -name "test-my-script-setup" -type f)
+
+  testScriptResults=$(patternMatching "${findTestScriptOutput}" ".*test-my-script.*")
+  testSetupScriptResults=$(patternMatching "${findTestSetupScriptOutput}" ".*test-my-script-setup.*")
+
+  assertTrue "Script should create test script in desired location" "${testScriptResults}"
+  assertTrue "Script should create test setup script in desired location" "${testSetupScriptResults}"
+}
+
+test_shouldUpdateScriptWithInfomrationFromUserInput() {
+  runScript
+  script="resources/my-script/my-script"
+  user=$(getent passwd | grep "$(whoami)" | awk -F ":" '{print $5}' | awk -F "," '{print $1}')
+
+  fileNameResults=$(grepSearchFile "File:\ my-script" ${script})
+  descriptionResults=$(grepSearchFile "Description:\ Test\ script" ${script})
+  usageResults=$(grepSearchFile "Usage:\ \.\/my-script" ${script})
+  dateResults=$(grepSearchFile "Date:\ $(date)" ${script})
+  authorResults=$(grepSearchFile "Author:\ ${user}" ${script})
+  versionResults=$(grepSearchFile "Version:\ 1\.0" ${script})
+
+  assertTrue "Script should modify created script with script name" "${fileNameResults}"
+  assertTrue "Script should modify created script with script description" "${descriptionResults}"
+  assertTrue "Script should modify created script with usage" "${usageResults}"
+  assertTrue "Script should modify created script with date" "${dateResults}"
+  assertTrue "Script should modify created script with author" "${authorResults}"
+  assertTrue "Script should modify created script with version" "${versionResults}"
+}
+
+test_shouldUpdateTestScriptWithCorrectInfomration() {
+  runScript
+  script="resources/my-script/test/test-my-script"
+  
+  setupScriptResults=$(grepSearchFile "source\ .*test-my-script-setup" ${script})
+
+  assertTrue "Script should modify created test script with test setup script location" "${setupScriptResults}"
+}
+
+test_shouldUpdateTestSetupScriptWithCorrectInformation() {
+  runScript
+  script="resources/my-script/test/test-my-script-setup"
+
+  scriptLocResults=$(grepSearchFile "SCRIPT_LOCATION=../my-script" ${script})
+  testLogResults=$(grepSearchFile "resources/test-my-script.log" ${script})
+
+  assertTrue "Script should modify created test setup script with script location" "${scriptLocResults}"
+  assertTrue "Script should modify created test setup script with test log location" "${testLogResults}"
+}
+
+test_shouldUpdateScriptYamlWithNewInformation() {
+  runScript
+  
+  scriptNameResults=$(grepSearchFile "my-script:" "${TEST_YAML_FILE}")
+  scriptMetaData=$(awk '/my-script:/{flag=1;next}/^$/{flag=0}flag' "${TEST_YAML_FILE}")
+  
+  assertTrue "Script should update script.yml with new script" "${scriptNameResults}"
+  assertMetaData "${scriptMetaData}" "resources/my-script/" "Test script"
+}
+
+test_shouldUpdateScriptYamlIfAliasProvided() {
+  echo "Running cmd: ${SCRIPT_LOCATION} -n my-script -l \"resources\" -d \"Test script\" -a \"create-script\""
+  ${SCRIPT_LOCATION} -n my-script -l "resources" -d "Test script" -a "create-script"
+  
+  scriptMetaData=$(awk '/my-script:/{flag=1;next}/^$/{flag=0}flag' "${TEST_YAML_FILE}")
+  assertMetaData "${scriptMetaData}" "resources/my-script/" "Test script" "create-script"
+}
+
+test_shouldCreateScriptWithCorrectPermissions() {
+  runScript
+  script="resources/my-script/my-script"
+
+  permissionsResults=$(checkPermissions "${script}")
+
+  assertTrue "Should create script with the proper executable permissions" "${permissionsResults}"
+}
+
+test_shouldCreateTestScriptWithCorrectPermissions() {
+  runScript
+  script="resources/my-script/test/test-my-script"
+
+  testPermResults=$(checkPermissions "${script}")
+
+  assertTrue "Should create test script with the proper executable permissions" "${testPermResults}"
+}
+
+set +u
+. shunit2

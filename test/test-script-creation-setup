@@ -1,0 +1,26 @@
+#!/bin/bash
+
+SCRIPT_LOCATION="../script-creation"
+TEST_DIR_LOCATION="resources/my-script"
+TEST_YAML_FILE="resources/scripts.yml"
+
+setupOneTimeSetUp() {
+  TEST_PATH=$(pwd)
+  export PATH="${TEST_PATH}:${PATH}"
+  export TEST_LOG_FILE="${TEST_PATH}/resources/test-script-creation.log"
+}
+
+setupOneTimeTearDown() {
+  #echo "In setupOneTimeTearDown"
+  rm -f ${TEST_LOG_FILE}
+  rm -fr ${TEST_DIR_LOCATION}
+  rm -f ${TEST_YAML_FILE}
+}
+
+setupTearDown() {
+  #echo "In setupTearDown"
+  rm -f ${TEST_LOG_FILE}
+  rm -fr ${TEST_DIR_LOCATION}
+  rm -f ${TEST_YAML_FILE}
+}
+  
