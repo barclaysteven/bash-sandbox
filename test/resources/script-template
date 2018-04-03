@@ -1,0 +1,28 @@
+#!/bin/bash
+
+##
+#        File: [FILENAME]
+#
+#       Usage: ./[USAGE]
+#
+# Description: [DESCRIPTION]
+#
+#      Author: [AUTHOR]
+# Create Date: [DATE]
+#     Version: [VERSION]
+#
+##
+
+set -e
+
+MOI=$(basename $0)
+LOG_FILE=$(dirname $0)/${MOI}.log
+
+if [ ${RUNNING_TESTS} ] ; then
+  LOG_FILE="test/resources/<test-script-name>.log"
+fi
+
+function onExit() {
+  echo "$(date +'%b %d %H:%M:%S') ${MOI}: ${msg}" >> ${LOG_FILE}
+  exit $1
+} ; trap  onExit 1 2 3 15 ERR
