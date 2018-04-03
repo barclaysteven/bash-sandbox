@@ -1,0 +1,18 @@
+#!/bin/bash
+
+SCRIPT_LOCATION=[SCRIPT_LOC]
+
+setupOneTimeSetUp() {
+  TEST_PATH=$(pwd)
+  export PATH="${TEST_PATH}:${PATH}"
+  export TEST_LOG_FILE="${TEST_PATH}/resources/[TEST_SCRIPT].log"
+}
+
+setupOneTimeTearDown() {
+  rm -f ${TEST_LOG_FILE}
+}
+
+setupTearDown() {
+  rm -f ${TEST_LOG_FILE}
+}
+  
