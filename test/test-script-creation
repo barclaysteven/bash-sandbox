@@ -211,7 +211,7 @@ test_shouldUpdateTestSetupScriptWithCorrectInformation() {
   runScript
   script="resources/my-script/test/test-my-script-setup"
 
-  scriptLocResults=$(grepSearchFile "SCRIPT_LOCATION=../my-script" ${script})
+  scriptLocResults=$(grepSearchFile "SCRIPT_LOCATION=../myy-script" ${script})
   testLogResults=$(grepSearchFile "resources/test-my-script.log" ${script})
 
   assertTrue "Script should modify created test setup script with script location" "${scriptLocResults}"
