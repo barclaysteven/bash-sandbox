@@ -1,0 +1,43 @@
+#!/bin/bash
+
+add() {
+  until [ -z $2 ]
+  do
+    case $2 in
+      "--username")
+        username="$3"
+        shift 2
+        ;;
+      "--accountName")
+        accountName="$3"
+        shift 2
+        ;;
+      *)
+        invalidArgs=$2
+        ;;
+    esac
+    if [ ${invalidArgs} ] ; then
+      echo "invalid Args: ${invalidArgs}"
+      exit 2
+    fi
+  done
+
+  echo "Username: ${username}"
+  echo "Account Name: ${accountName}"
+}
+
+case $1 in
+  'add')
+    add "$@"
+    ;;
+  'remove')
+    remove "$@"
+    ;;
+  *)
+    invalidCmd=$1
+    ;;
+esac
+if [ ${invalidCmd} ] ; then
+  echo "invalid cmd: ${invalidCmd}"
+  exit 1
+fi

@@ -1,0 +1,49 @@
+#!/bin/bash
+
+## Log into the paas-portal and produce credentials and envs
+
+usage() {
+  echo "paas-portal-login [OPTIONS]"
+  echo "  Options include:"
+  echo "    --account [account]"
+  echo "    --region [region]"
+  echo "    --help"
+  exit 0
+}
+
+until [ -z $1 ]
+do
+  case $1 in
+    '--account')
+      account=$2
+      shift
+      ;;
+    '--region')
+      region=$2
+      shift
+      ;;
+    '--help')
+      usage
+      ;;
+    *)
+      invalidArgs=$1
+      ;;
+  esac
+  if [ ${invalidArgs} ] ; then
+    usage
+  fi
+  shift
+done
+
+if [ ! ${account} ] ; then
+  account="development-fh5"
+fi
+
+if [ ! ${region} ] ; then
+  region="us-east-1"
+fi
+
+mvn paas-portal:login paas-portal:generate-env paas-portal:generate-profile -DdefaultAccount=${account} -DdefaultRegion=${region}
+
+mv /home/barclays/*-env /home/barclays/.aws
+

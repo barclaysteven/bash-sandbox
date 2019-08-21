@@ -1,0 +1,72 @@
+#!/bin/bash
+
+usage() {
+  echo "user-mgmt-operations [COMMAND] [OPTIONS]"
+  echo "  Commands:"
+  echo "    add-operator-admin"
+  echo "      Options:"
+  echo "        --username {username}"
+  echo "        --accountName {AWS Account Name}"
+  echo ""
+  echo "    remove-operator-admin"
+  echo "      Options:"
+  echo "        --username {username}"
+  echo "        --accountName {AWS Account Name}"
+  echo ""
+  echo "    add-operator"
+  echo "      Options:"
+  echo "        --username {username}"
+  echo "        --accountName {AWS Account Name}"
+  echo ""
+  echo "    remove-operator"
+  echo "      Options:"
+  echo "        --username {username}"
+  echo "        --accountName {AWS Account Name}"
+  
+  # TODO: Add options for operator actions
+
+  exit 0
+}
+
+case $1 in
+  'add-operator-admin')
+    
+    ;;
+  'remove-operator-admin')
+    ;;
+  'add-operator')
+    ;;
+  'remove-operator')
+    ;;
+  *)
+    invalidCommand=$1
+    ;;
+esac
+
+if [ ${invalidCommand} ] ; then
+  usage
+fi
+
+until [ -z $1 ]
+do
+  case $1 in
+    '--account')
+      account=$2
+      shift
+      ;;
+    '--region')
+      region=$2
+      shift
+      ;;
+    '--help')
+      usage
+      ;;
+    *)
+      invalidArgs=$1
+      ;;
+  esac
+  if [ ${invalidArgs} ] ; then
+    usage
+  fi
+  shift
+done
